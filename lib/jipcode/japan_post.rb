@@ -1,4 +1,3 @@
-require 'jipcode'
 require 'uri'
 require 'net/http'
 require 'zip'
@@ -20,7 +19,7 @@ module Jipcode
       import_all
 
       # データの更新月を記録する
-      File.open('zipcode/current_month', 'w') { |f| f.write(Time.now.strftime('%Y%m')) }
+      File.open("#{DATA_PATH}/current_month", 'w') { |f| f.write(Time.now.strftime('%Y%m')) }
     end
 
     def download_all
@@ -29,12 +28,12 @@ module Jipcode
         http = Net::HTTP.new(url.host, 443)
         http.use_ssl = true
         res = http.get(url.path)
-        File.open("zipcode/#{type}.zip", 'wb') { |f| f.write(res.body) }
+        File.open("#{DATA_PATH}/#{type}.zip", 'wb') { |f| f.write(res.body) }
       end
     end
 
     def import_all
-      File.rename(ZIPCODE_PATH, 'zipcode/previous') if File.exist?(ZIPCODE_PATH)
+      File.rename(ZIPCODE_PATH, PREVIOUS_PATH) if File.exist?(ZIPCODE_PATH)
       Dir.mkdir(ZIPCODE_PATH)
 
       zipcodes = unpack(:general)
@@ -57,19 +56,17 @@ module Jipcode
         [zipcode, prefecture, city, town]
       end
 
-      FileUtils.rm_rf('zipcode/previous')
+      FileUtils.rm_rf(PREVIOUS_PATH)
     rescue => e
       FileUtils.rm_rf(ZIPCODE_PATH)
-      File.rename('zipcode/previous', ZIPCODE_PATH) if File.exist?('zipcode/previous')
+      File.rename(PREVIOUS_PATH, ZIPCODE_PATH) if File.exist?(PREVIOUS_PATH)
       raise e, '日本郵便のデータを読み込めませんでした。'
     end
 
     # Private
 
     def unpack(type)
-      download unless File.exist?("zipcode/#{type}.zip")
-
-      content = ::Zip::File.open("zipcode/#{type}.zip") do |zip_file|
+      content = ::Zip::File.open("#{DATA_PATH}/#{type}.zip") do |zip_file|
                   entry = zip_file.glob(ZIPCODE_FILES[type]).first
                   raise '日本郵便のファイルからデータが見つかりませんでした。' unless entry
                   entry.get_input_stream.read

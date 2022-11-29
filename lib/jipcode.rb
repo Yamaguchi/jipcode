@@ -3,8 +3,13 @@ require 'csv'
 require 'yaml'
 
 module Jipcode
-  ZIPCODE_PATH = "#{File.dirname(__FILE__)}/../zipcode/latest".freeze
+  DATA_PATH = "#{File.dirname(__FILE__)}/../zipcode".freeze
+  ZIPCODE_PATH = "#{DATA_PATH}/latest".freeze
+  PREVIOUS_PATH = "#{DATA_PATH}/previous".freeze
+
   PREFECTURE_CODE = YAML.load_file("#{File.dirname(__FILE__)}/../prefecture_code.yml").freeze
+
+  autoload :JapanPost, "jipcode/japan_post"
 
   def locate(zipcode, opt={})
     # 数字7桁以外の入力は受け付けない

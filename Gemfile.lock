@@ -2,6 +2,7 @@ PATH
   remote: .
   specs:
     jipcode (2.0.34)
+      jaro_winkler (~> 1.5.3)
 
 GEM
   remote: https://rubygems.org/
@@ -13,6 +14,7 @@ GEM
       rexml
     diff-lcs (1.5.0)
     hashdiff (1.0.1)
+    jaro_winkler (1.5.4)
     public_suffix (5.0.0)
     rake (13.0.6)
     rexml (3.2.5)

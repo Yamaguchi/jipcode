@@ -1,4 +1,5 @@
 require "jipcode/version"
+require "jipcode/address_locator"
 require 'csv'
 require 'yaml'
 
@@ -10,6 +11,7 @@ module Jipcode
   PREFECTURE_CODE = YAML.load_file("#{File.dirname(__FILE__)}/../prefecture_code.yml").freeze
 
   autoload :JapanPost, "jipcode/japan_post"
+  autoload :AddressLocator, "jipcode/address_locator"
 
   def locate(zipcode, opt={})
     # 数字7桁以外の入力は受け付けない
@@ -30,11 +32,15 @@ module Jipcode
   end
 
   def basic_address_from(address_param)
+    pp address_param
     {
-      zipcode:    address_param[0],
-      prefecture: address_param[1],
-      city:       address_param[2],
-      town:       address_param[3]
+      zipcode:         address_param[0],
+      prefecture:      address_param[1],
+      city:            address_param[2],
+      town:            address_param[3],
+      prefecture_kana: address_param[4],
+      city_kana:       address_param[5],
+      town_kana:       address_param[6],
     }
   end
 

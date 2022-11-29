@@ -39,23 +39,25 @@ module Jipcode
 
       zipcodes = unpack(:general)
       import(zipcodes) do |row|
-        zipcode    = row[2] # 郵便番号
-        prefecture = row[6] # 都道府県
-        city       = row[7] # 市区町村
-        town       = row[8] # 町域
-
-        [zipcode, prefecture, city, town]
+        zipcode         = row[2] # 郵便番号
+        prefecture      = row[6] # 都道府県
+        city            = row[7] # 市区町村
+        town            = row[8] # 町域
+        prefecture_kana = row[3] # 都道府県カナ
+        city_kana       = row[4] # 市区町村カナ
+        town_kana       = row[5] # 町域カナ
+        [zipcode, prefecture, city, town, prefecture_kana, city_kana, town_kana]
       end
 
       unless general_only
         zipcodes = unpack(:company)
         import(zipcodes) do |row|
-          zipcode    = row[7] # 郵便番号
-          prefecture = row[3] # 都道府県
-          city       = row[4] # 市区町村
-          town       = row[5] + row[6] # 町域 + 番地
-
-          [zipcode, prefecture, city, town]
+          zipcode         = row[7] # 郵便番号
+          prefecture      = row[3] # 都道府県
+          city            = row[4] # 市区町村
+          town            = row[5] + row[6] # 町域 + 番地
+  
+          [zipcode, prefecture, city, town, "", "", ""]
         end
       end
 
@@ -95,12 +97,16 @@ module Jipcode
 
         # 町域等に含まれる曖昧な表記を削除
         unless town.include?('私書箱')
-          address[3] = town.sub(/(（.+|以下に掲載がない場合)$/, '')
+          if town.include?('以下に掲載がない場合')
+            address[3] = town.sub(/(（.+|以下に掲載がない場合)$/, '')
+            address[6] = nil
+          end
         end
 
         # 町域等の内容が市区町村の内容と重複する場合、空にする
         if town.include?('の次に番地がくる場合') || town.include?('一円')
           address[3] = nil
+          address[6] = nil
         end
 
         # 10万件以上あるので郵便番号上3桁ごとに分割

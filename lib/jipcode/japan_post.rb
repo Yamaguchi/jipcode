@@ -14,16 +14,17 @@ module Jipcode
       company: 'JIGYOSYO.CSV'.freeze
     }.freeze
 
-    def update
-      download_all
-      import_all
+    def update(general_only=false)
+      download_all(general_only)
+      import_all(general_only)
 
       # データの更新月を記録する
       File.open("#{DATA_PATH}/current_month", 'w') { |f| f.write(Time.now.strftime('%Y%m')) }
     end
 
-    def download_all
+    def download_all(general_only=false)
       ZIPCODE_URLS.each do |type, url|
+        next if general_only && type == :company
         url = URI.parse(url)
         http = Net::HTTP.new(url.host, 443)
         http.use_ssl = true
@@ -32,7 +33,7 @@ module Jipcode
       end
     end
 
-    def import_all
+    def import_all(general_only=false)
       File.rename(ZIPCODE_PATH, PREVIOUS_PATH) if File.exist?(ZIPCODE_PATH)
       Dir.mkdir(ZIPCODE_PATH)
 
@@ -46,14 +47,16 @@ module Jipcode
         [zipcode, prefecture, city, town]
       end
 
-      zipcodes = unpack(:company)
-      import(zipcodes) do |row|
-        zipcode    = row[7] # 郵便番号
-        prefecture = row[3] # 都道府県
-        city       = row[4] # 市区町村
-        town       = row[5] + row[6] # 町域 + 番地
+      unless general_only
+        zipcodes = unpack(:company)
+        import(zipcodes) do |row|
+          zipcode    = row[7] # 郵便番号
+          prefecture = row[3] # 都道府県
+          city       = row[4] # 市区町村
+          town       = row[5] + row[6] # 町域 + 番地
 
-        [zipcode, prefecture, city, town]
+          [zipcode, prefecture, city, town]
+        end
       end
 
       FileUtils.rm_rf(PREVIOUS_PATH)

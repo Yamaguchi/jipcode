@@ -1,4 +1,3 @@
-require 'jipcode'
 require 'uri'
 require 'net/http'
 require 'zip'
@@ -15,61 +14,64 @@ module Jipcode
       company: 'JIGYOSYO.CSV'.freeze
     }.freeze
 
-    def update
-      download_all
-      import_all
+    def update(general_only=false)
+      download_all(general_only)
+      import_all(general_only)
 
       # データの更新月を記録する
-      File.open('zipcode/current_month', 'w') { |f| f.write(Time.now.strftime('%Y%m')) }
+      File.open("#{DATA_PATH}/current_month", 'w') { |f| f.write(Time.now.strftime('%Y%m')) }
     end
 
-    def download_all
+    def download_all(general_only=false)
       ZIPCODE_URLS.each do |type, url|
+        next if general_only && type == :company
         url = URI.parse(url)
         http = Net::HTTP.new(url.host, 443)
         http.use_ssl = true
         res = http.get(url.path)
-        File.open("zipcode/#{type}.zip", 'wb') { |f| f.write(res.body) }
+        File.open("#{DATA_PATH}/#{type}.zip", 'wb') { |f| f.write(res.body) }
       end
     end
 
-    def import_all
-      File.rename(ZIPCODE_PATH, 'zipcode/previous') if File.exist?(ZIPCODE_PATH)
+    def import_all(general_only=false)
+      File.rename(ZIPCODE_PATH, PREVIOUS_PATH) if File.exist?(ZIPCODE_PATH)
       Dir.mkdir(ZIPCODE_PATH)
 
       zipcodes = unpack(:general)
       import(zipcodes) do |row|
-        zipcode    = row[2] # 郵便番号
-        prefecture = row[6] # 都道府県
-        city       = row[7] # 市区町村
-        town       = row[8] # 町域
-
-        [zipcode, prefecture, city, town]
+        zipcode         = row[2] # 郵便番号
+        prefecture      = row[6] # 都道府県
+        city            = row[7] # 市区町村
+        town            = row[8] # 町域
+        prefecture_kana = row[3] # 都道府県カナ
+        city_kana       = row[4] # 市区町村カナ
+        town_kana       = row[5] # 町域カナ
+        [zipcode, prefecture, city, town, prefecture_kana, city_kana, town_kana]
       end
 
-      zipcodes = unpack(:company)
-      import(zipcodes) do |row|
-        zipcode    = row[7] # 郵便番号
-        prefecture = row[3] # 都道府県
-        city       = row[4] # 市区町村
-        town       = row[5] + row[6] # 町域 + 番地
-
-        [zipcode, prefecture, city, town]
+      unless general_only
+        zipcodes = unpack(:company)
+        import(zipcodes) do |row|
+          zipcode         = row[7] # 郵便番号
+          prefecture      = row[3] # 都道府県
+          city            = row[4] # 市区町村
+          town            = row[5] + row[6] # 町域 + 番地
+  
+          [zipcode, prefecture, city, town, "", "", ""]
+        end
       end
 
-      FileUtils.rm_rf('zipcode/previous')
+      FileUtils.rm_rf(PREVIOUS_PATH)
     rescue => e
       FileUtils.rm_rf(ZIPCODE_PATH)
-      File.rename('zipcode/previous', ZIPCODE_PATH) if File.exist?('zipcode/previous')
+      File.rename(PREVIOUS_PATH, ZIPCODE_PATH) if File.exist?(PREVIOUS_PATH)
       raise e, '日本郵便のデータを読み込めませんでした。'
     end
 
     # Private
 
     def unpack(type)
-      download unless File.exist?("zipcode/#{type}.zip")
-
-      content = ::Zip::File.open("zipcode/#{type}.zip") do |zip_file|
+      content = ::Zip::File.open("#{DATA_PATH}/#{type}.zip") do |zip_file|
                   entry = zip_file.glob(ZIPCODE_FILES[type]).first
                   raise '日本郵便のファイルからデータが見つかりませんでした。' unless entry
                   entry.get_input_stream.read
@@ -95,12 +97,16 @@ module Jipcode
 
         # 町域等に含まれる曖昧な表記を削除
         unless town.include?('私書箱')
-          address[3] = town.sub(/(（.+|以下に掲載がない場合)$/, '')
+          if town.include?('以下に掲載がない場合')
+            address[3] = town.sub(/(（.+|以下に掲載がない場合)$/, '')
+            address[6] = nil
+          end
         end
 
         # 町域等の内容が市区町村の内容と重複する場合、空にする
         if town.include?('の次に番地がくる場合') || town.include?('一円')
           address[3] = nil
+          address[6] = nil
         end
 
         # 10万件以上あるので郵便番号上3桁ごとに分割

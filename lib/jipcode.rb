@@ -32,7 +32,6 @@ module Jipcode
   end
 
   def basic_address_from(address_param)
-    pp address_param
     {
       zipcode:         address_param[0],
       prefecture:      address_param[1],
